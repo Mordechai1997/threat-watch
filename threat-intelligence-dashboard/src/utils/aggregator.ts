@@ -55,11 +55,11 @@ export const aggregateThreatData = (
 
 // Risk Calculation
 export const calculateRiskLevel = (data: ThreatData): RiskLevel => {
-    const { abuseScore, fraudScore, vpnProxyDetected } = data;
+    const { abuseScore, fraudScore } = data;
 
     if (
         abuseScore >= RISK_THRESHOLDS.ABUSE_HIGH ||
-        (vpnProxyDetected && fraudScore >= RISK_THRESHOLDS.FRAUD_HIGH)
+        fraudScore >= RISK_THRESHOLDS.FRAUD_HIGH
     ) {
         return 'HIGH';
     }
@@ -72,4 +72,4 @@ export const calculateRiskLevel = (data: ThreatData): RiskLevel => {
     }
 
     return 'LOW';
-};  
+};

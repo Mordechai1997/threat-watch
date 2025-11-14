@@ -1,10 +1,6 @@
-import { validateIp } from '../utils/validation'; // נתיב יחסי
+import { validateIp } from '../utils/validation';
 
 describe('IP Validation Utility', () => {
-
-    // ------------------------------------
-    // VALID IPv4 TESTS
-    // ------------------------------------
 
     it('should return true for a valid standard IPv4 address', () => {
         expect(validateIp('8.8.8.8')).toBe(true);
@@ -19,10 +15,6 @@ describe('IP Validation Utility', () => {
     it('should return true for an address with leading/trailing spaces (should be trimmed)', () => {
         expect(validateIp(' 1.1.1.1 ')).toBe(true);
     });
-
-    // ------------------------------------
-    // INVALID IPv4 TESTS
-    // ------------------------------------
 
     it('should return false for an empty string or null input', () => {
         expect(validateIp('')).toBe(false);
@@ -46,7 +38,6 @@ describe('IP Validation Utility', () => {
     });
 
     it('should return false for addresses containing leading zeros in octets (if strict)', () => {
-        // רוב ה-Validators מחשיבים זאת כלא תקין
         expect(validateIp('192.168.01.1')).toBe(false);
     });
 
