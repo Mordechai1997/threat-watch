@@ -6,9 +6,9 @@ export interface ThreatData {
   isp: string | null;
   country: string | null;
   abuseScore: number;
-  totalReports: number;
+  totalReports: number; 
   vpnProxyDetected: boolean;
-  fraudScore: number;
+  threatScore: number; 
 }
 
 export interface ThreatState {

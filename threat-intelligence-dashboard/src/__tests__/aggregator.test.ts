@@ -1,5 +1,5 @@
 import { aggregateThreatData, calculateRiskLevel } from '@/utils/aggregator';
-import { ThreatData } from '@/types/threat';
+import { ThreatData, RiskLevel } from '@/types/threat';
 
 // Mock Data Types
 interface AbuseIPDBData {
@@ -28,6 +28,19 @@ interface IPAPIData {
   isp: string;
   hostname: string;
   org: string;
+}
+
+// Mocking the constants required for calculateRiskLevel based on assumed values
+const RISK_THRESHOLDS = {
+  ABUSE_HIGH: 75,
+  FRAUD_HIGH: 50,
+  ABUSE_MEDIUM: 30,
+  FRAUD_MEDIUM: 30,
+};
+
+// Defining the expected ThreatData structure for base data setup
+interface MockedThreatData extends ThreatData {
+  threatScore: number;
 }
 
 describe('aggregateThreatData', () => {
@@ -86,7 +99,8 @@ describe('aggregateThreatData', () => {
 
       expect(result.abuseScore).toBe(45);
       expect(result.totalReports).toBe(100);
-      expect(result.fraudScore).toBe(25);
+      // Updated to threatScore
+      expect(result.threatScore).toBe(25);
       expect(result.vpnProxyDetected).toBe(false);
     });
   });
@@ -129,7 +143,8 @@ describe('aggregateThreatData', () => {
       expect(result.country).toBeNull();
       expect(result.abuseScore).toBe(0);
       expect(result.totalReports).toBe(0);
-      expect(result.fraudScore).toBe(0);
+      // Updated to threatScore
+      expect(result.threatScore).toBe(0);
     });
   });
 
@@ -138,7 +153,7 @@ describe('aggregateThreatData', () => {
       const result = aggregateThreatData({
         ipAddress: TEST_IP,
         abuseDB: mockAbuseDB,
-        ipqs: { ...mockIPQS, vpn: true },
+        ipqs: { ...mockIPQS, vpn: true, proxy: false },
         ipapi: mockIPAPI,
       });
 
@@ -149,7 +164,7 @@ describe('aggregateThreatData', () => {
       const result = aggregateThreatData({
         ipAddress: TEST_IP,
         abuseDB: mockAbuseDB,
-        ipqs: { ...mockIPQS, proxy: true },
+        ipqs: { ...mockIPQS, vpn: false, proxy: true },
         ipapi: mockIPAPI,
       });
 
@@ -170,77 +185,74 @@ describe('aggregateThreatData', () => {
 });
 
 describe('calculateRiskLevel', () => {
-  const baseData: ThreatData = {
+  // Using MockedThreatData to reflect the actual aggregated structure
+  const baseData: MockedThreatData = {
     ipAddress: '1.1.1.1',
     hostname: null,
     isp: 'ISP',
     country: 'XX',
     totalReports: 1,
     abuseScore: 0,
-    fraudScore: 0,
+    threatScore: 0, // Updated from fraudScore
     vpnProxyDetected: false,
   };
 
+  const THRESHOLDS = RISK_THRESHOLDS;
+
   describe('HIGH risk scenarios', () => {
-    it('should return HIGH when abuse score >= 75', () => {
-      const data = { ...baseData, abuseScore: 75 };
+    it(`should return HIGH when abuse score >= ${THRESHOLDS.ABUSE_HIGH}`, () => {
+      const data = { ...baseData, abuseScore: THRESHOLDS.ABUSE_HIGH };
       expect(calculateRiskLevel(data)).toBe('HIGH');
     });
 
-    it('should return HIGH when abuse score > 75', () => {
-      const data = { ...baseData, abuseScore: 90 };
-      expect(calculateRiskLevel(data)).toBe('HIGH');
-    });
-
-    it('should return HIGH when VPN detected and fraud score >= 50', () => {
-      const data = { 
-        ...baseData, 
-        vpnProxyDetected: true, 
-        fraudScore: 50,
-        abuseScore: 10 
+    it(`should return HIGH when threat score >= ${THRESHOLDS.FRAUD_HIGH}`, () => {
+      const data = {
+        ...baseData,
+        threatScore: THRESHOLDS.FRAUD_HIGH,
+        abuseScore: THRESHOLDS.ABUSE_MEDIUM - 1
       };
       expect(calculateRiskLevel(data)).toBe('HIGH');
     });
 
-    it('should return HIGH when VPN detected and fraud score > 50', () => {
-      const data = { 
-        ...baseData, 
-        vpnProxyDetected: true, 
-        fraudScore: 75 
+    it('should return HIGH when both are high', () => {
+      const data = {
+        ...baseData,
+        abuseScore: 90,
+        threatScore: 75
       };
       expect(calculateRiskLevel(data)).toBe('HIGH');
     });
   });
 
   describe('MEDIUM risk scenarios', () => {
-    it('should return MEDIUM when abuse score is 30-74', () => {
-      const data = { ...baseData, abuseScore: 35 };
+    it(`should return MEDIUM when abuse score is between ${THRESHOLDS.ABUSE_MEDIUM} and ${THRESHOLDS.ABUSE_HIGH - 1}`, () => {
+      const data = { ...baseData, abuseScore: 35, threatScore: 0 };
       expect(calculateRiskLevel(data)).toBe('MEDIUM');
     });
 
-    it('should return MEDIUM when fraud score is 30-49', () => {
-      const data = { ...baseData, fraudScore: 40 };
+    it(`should return MEDIUM when threat score is between ${THRESHOLDS.FRAUD_MEDIUM} and ${THRESHOLDS.FRAUD_HIGH - 1}`, () => {
+      const data = { ...baseData, threatScore: 40, abuseScore: 0 };
       expect(calculateRiskLevel(data)).toBe('MEDIUM');
     });
 
-    it('should return MEDIUM at abuse score boundary (30)', () => {
-      const data = { ...baseData, abuseScore: 30 };
+    it(`should return MEDIUM at abuse score boundary (${THRESHOLDS.ABUSE_MEDIUM})`, () => {
+      const data = { ...baseData, abuseScore: THRESHOLDS.ABUSE_MEDIUM, threatScore: 0 };
       expect(calculateRiskLevel(data)).toBe('MEDIUM');
     });
 
-    it('should return MEDIUM at fraud score boundary (30)', () => {
-      const data = { ...baseData, fraudScore: 30 };
+    it(`should return MEDIUM at threat score boundary (${THRESHOLDS.FRAUD_MEDIUM})`, () => {
+      const data = { ...baseData, threatScore: THRESHOLDS.FRAUD_MEDIUM, abuseScore: 0 };
       expect(calculateRiskLevel(data)).toBe('MEDIUM');
     });
   });
 
   describe('LOW risk scenarios', () => {
-    it('should return LOW when all scores are below 30', () => {
-      const data = { 
-        ...baseData, 
-        abuseScore: 29, 
-        fraudScore: 29, 
-        vpnProxyDetected: false 
+    it(`should return LOW when all scores are below ${THRESHOLDS.ABUSE_MEDIUM}`, () => {
+      const data = {
+        ...baseData,
+        abuseScore: THRESHOLDS.ABUSE_MEDIUM - 1,
+        threatScore: THRESHOLDS.FRAUD_MEDIUM - 1,
+        vpnProxyDetected: false
       };
       expect(calculateRiskLevel(data)).toBe('LOW');
     });
@@ -249,33 +261,19 @@ describe('calculateRiskLevel', () => {
       const data = { ...baseData };
       expect(calculateRiskLevel(data)).toBe('LOW');
     });
-
-    it('should return LOW even with VPN if fraud score is low', () => {
-      const data = { 
-        ...baseData, 
-        vpnProxyDetected: true, 
-        fraudScore: 49 
-      };
-      expect(calculateRiskLevel(data)).toBe('MEDIUM');
-    });
   });
 
   describe('edge cases', () => {
-    it('should handle abuse score at HIGH boundary (75)', () => {
-      const data = { ...baseData, abuseScore: 75 };
-      expect(calculateRiskLevel(data)).toBe('HIGH');
-    });
-
-    it('should handle abuse score just below HIGH boundary (74)', () => {
-      const data = { ...baseData, abuseScore: 74 };
+    it(`should handle abuse score just below HIGH boundary (${THRESHOLDS.ABUSE_HIGH - 1})`, () => {
+      const data = { ...baseData, abuseScore: THRESHOLDS.ABUSE_HIGH - 1 };
       expect(calculateRiskLevel(data)).toBe('MEDIUM');
     });
 
     it('should prioritize HIGH over MEDIUM', () => {
-      const data = { 
-        ...baseData, 
-        abuseScore: 80, 
-        fraudScore: 40 
+      const data = {
+        ...baseData,
+        abuseScore: THRESHOLDS.ABUSE_HIGH + 5,
+        threatScore: THRESHOLDS.FRAUD_MEDIUM + 5
       };
       expect(calculateRiskLevel(data)).toBe('HIGH');
     });

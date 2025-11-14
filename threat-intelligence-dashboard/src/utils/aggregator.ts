@@ -49,24 +49,24 @@ export const aggregateThreatData = (
         abuseScore: abuseDB?.abuseConfidenceScore || 0,
         totalReports: abuseDB?.totalReports || 0,
         vpnProxyDetected: Boolean(ipqs?.vpn || ipqs?.proxy),
-        fraudScore: ipqs?.fraud_score || 0,
+        threatScore: ipqs?.fraud_score || 0,
     };
 };
 
 // Risk Calculation
 export const calculateRiskLevel = (data: ThreatData): RiskLevel => {
-    const { abuseScore, fraudScore } = data;
+    const { abuseScore, threatScore } = data;
 
     if (
         abuseScore >= RISK_THRESHOLDS.ABUSE_HIGH ||
-        fraudScore >= RISK_THRESHOLDS.FRAUD_HIGH
+        threatScore >= RISK_THRESHOLDS.FRAUD_HIGH
     ) {
         return 'HIGH';
     }
 
     if (
         abuseScore >= RISK_THRESHOLDS.ABUSE_MEDIUM ||
-        fraudScore >= RISK_THRESHOLDS.FRAUD_MEDIUM
+        threatScore >= RISK_THRESHOLDS.FRAUD_MEDIUM
     ) {
         return 'MEDIUM';
     }
