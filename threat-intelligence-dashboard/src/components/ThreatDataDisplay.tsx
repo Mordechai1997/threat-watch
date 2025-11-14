@@ -116,7 +116,7 @@ const ThreatDataDisplay = () => {
       </h2>
 
       <div className={styles.riskSection.wrapper}>
-        <span className={styles.riskSection.label}>Overall Risk Level (Bonus):</span>
+        <span className={styles.riskSection.label}>Overall Risk Level :</span>
         <span className={`${styles.riskSection.badge.base} ${riskBadgeClass}`}>
           {riskLevel}
         </span>
