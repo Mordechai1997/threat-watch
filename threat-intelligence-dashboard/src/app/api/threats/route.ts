@@ -5,6 +5,10 @@ import { ThreatData } from '@/types/threat';
 import { fetchAbuseIPDB, fetchIPQualityScore, fetchIPAPI } from '@/services/threatApi';
 import { APP_STRINGS } from '@/utils/strings';
 import { HTTP_STATUS } from '@/constants';
+import { getCache, setCache } from '@/utils/cache';
+
+// TTL from ENV (fallback: 10 minutes)
+const CACHE_TTL_MS = Number(process.env.CACHE_TTL_MS ?? 10 * 60 * 1000);
 
 export async function GET(request: NextRequest) {
   const ipAddress = new URL(request.url).searchParams.get('ip');
@@ -15,6 +19,12 @@ export async function GET(request: NextRequest) {
       { error: APP_STRINGS.ERROR_IP_FORMAT },
       { status: HTTP_STATUS.BAD_REQUEST }
     );
+  }
+
+  // --- CACHE: check before doing anything ---
+  const cached = getCache(ipAddress);
+  if (cached) {
+    return NextResponse.json(cached);
   }
 
   try {
@@ -38,15 +48,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Log failures
+    const providers = ['AbuseIPDB', 'IPQualityScore', 'IPAPI'];
     results.forEach((r, i) => {
       if (r.status === 'rejected') {
-        const providers = ['AbuseIPDB', 'IPQualityScore', 'IPAPI'];
         console.error(`${providers[i]} request failed:`, r.reason);
       }
     });
 
     // Extract successful data
-    const [abuseDB, ipqs, ipapi] = results.map(r => 
+    const [abuseDB, ipqs, ipapi] = results.map(r =>
       r.status === 'fulfilled' ? r.value : null
     );
 
@@ -58,6 +68,10 @@ export async function GET(request: NextRequest) {
         ipqs,
         ipapi,
       });
+
+      // --- CACHE: store the result ---
+      setCache(ipAddress, data, CACHE_TTL_MS);
+
       return NextResponse.json(data as ThreatData);
     }
 
